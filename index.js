@@ -93,6 +93,91 @@ app.post('/api/login', (req, res) => {
   });
 });
 
+// Reset password
+app.post('/api/reset-password', async (req, res) => {
+  try {
+    const { email } = req.body
+
+    const query = 'SELECT * FROM users WHERE email = ?'
+    db.query(query, [email], async (err, results) => {
+      if (err) {
+        console.error('Error fetching user:', err)
+        return res.status(500).json({ msg: 'Error fetching user' })
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ msg: 'Email tidak ditemukan' })
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: 'yogamustasfa10@gmail.com',
+          pass: 'dkay wqbu jzeu dtoy',
+        },
+      })
+
+      const mailOptions = {
+        from: 'youremail@gmail.com',
+        to: email,
+        subject: 'Reset Password',
+        text: `Klik link ini untuk reset password: http://localhost:5173/setpassword/${email}`,
+      }
+
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.error('Error:', error)
+          res.status(500).json({ msg: 'Gagal mengirim email reset password' })
+        } else {
+          console.log('Email reset password terkirim:', info.response)
+          res.status(200).json({ msg: 'Email reset password berhasil dikirim' })
+        }
+      })
+    })
+  } catch (error) {
+    console.error('Error:', error)
+    res
+      .status(500)
+      .json({ msg: 'Terjadi kesalahan dalam proses reset password' })
+  }
+})
+
+// Update password
+app.put('/api/update-password', async (req, res) => {
+  const { email, password } = req.body
+
+  const query = 'SELECT * FROM users WHERE email = ?'
+  db.query(query, [email], async (err, results) => {
+    if (err) {
+      console.error('Error fetching user:', err)
+      return res.status(500).json({ msg: 'Error fetching user' })
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ msg: 'Email tidak ditemukan' })
+    }
+
+    const salt = await bcrypt.genSalt()
+    const hashPassword = await bcrypt.hash(password, salt)
+
+    const updateQuery = 'UPDATE users SET password = ? WHERE email = ?'
+    db.query(updateQuery, [hashPassword, email], (err, result) => {
+      if (err) {
+        console.error('Error updating password:', err)
+        return res.status(500).json({ msg: 'Error updating password' })
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ msg: 'Email tidak ditemukan' })
+      }
+
+      res.status(200).json({ msg: 'Update Password Berhasil' })
+    })
+  })
+})
+
 // Jalankan server
 app.listen(port, () => {
   console.log(`Server berjalan di http://localhost:${port}`);
